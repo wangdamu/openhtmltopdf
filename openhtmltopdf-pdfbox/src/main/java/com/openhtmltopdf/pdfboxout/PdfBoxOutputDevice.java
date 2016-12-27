@@ -19,22 +19,39 @@
  */
 package com.openhtmltopdf.pdfboxout;
 
-import com.openhtmltopdf.bidi.BidiReorderer;
-import com.openhtmltopdf.bidi.SimpleBidiReorderer;
-import com.openhtmltopdf.css.constants.CSSName;
-import com.openhtmltopdf.css.parser.FSCMYKColor;
-import com.openhtmltopdf.css.parser.FSColor;
-import com.openhtmltopdf.css.parser.FSRGBColor;
-import com.openhtmltopdf.css.style.CalculatedStyle;
-import com.openhtmltopdf.css.style.CssContext;
-import com.openhtmltopdf.extend.FSImage;
-import com.openhtmltopdf.extend.OutputDevice;
-import com.openhtmltopdf.layout.SharedContext;
-import com.openhtmltopdf.pdfboxout.PdfBoxFontResolver.FontDescription;
-import com.openhtmltopdf.pdfboxout.PdfBoxForm.CheckboxStyle;
-import com.openhtmltopdf.render.*;
-import com.openhtmltopdf.util.Configuration;
-import com.openhtmltopdf.util.XRLog;
+import java.awt.BasicStroke;
+import java.awt.Color;
+import java.awt.Paint;
+import java.awt.Rectangle;
+import java.awt.RenderingHints.Key;
+import java.awt.Shape;
+import java.awt.Stroke;
+import java.awt.geom.AffineTransform;
+import java.awt.geom.Area;
+import java.awt.geom.Ellipse2D;
+import java.awt.geom.Line2D;
+import java.awt.geom.NoninvertibleTransformException;
+import java.awt.geom.PathIterator;
+import java.awt.image.BufferedImage;
+import java.io.ByteArrayInputStream;
+import java.io.IOException;
+import java.util.ArrayDeque;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.Comparator;
+import java.util.Deque;
+import java.util.EnumMap;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.Iterator;
+import java.util.List;
+import java.util.Map;
+import java.util.Map.Entry;
+import java.util.Set;
+import java.util.logging.Level;
+import java.util.regex.Pattern;
+
+import javax.imageio.ImageIO;
 
 import org.apache.pdfbox.cos.COSName;
 import org.apache.pdfbox.pdmodel.PDDocument;
@@ -58,19 +75,30 @@ import org.w3c.dom.Document;
 import org.w3c.dom.Element;
 import org.w3c.dom.Node;
 
-import javax.imageio.ImageIO;
-
-import java.awt.*;
-import java.awt.RenderingHints.Key;
-import java.awt.geom.*;
-import java.awt.image.BufferedImage;
-import java.io.ByteArrayInputStream;
-import java.io.IOException;
-import java.util.*;
-import java.util.List;
-import java.util.Map.Entry;
-import java.util.logging.Level;
-import java.util.regex.Pattern;
+import com.openhtmltopdf.bidi.BidiReorderer;
+import com.openhtmltopdf.bidi.SimpleBidiReorderer;
+import com.openhtmltopdf.css.constants.CSSName;
+import com.openhtmltopdf.css.parser.FSCMYKColor;
+import com.openhtmltopdf.css.parser.FSColor;
+import com.openhtmltopdf.css.parser.FSRGBColor;
+import com.openhtmltopdf.css.style.CalculatedStyle;
+import com.openhtmltopdf.css.style.CssContext;
+import com.openhtmltopdf.extend.FSImage;
+import com.openhtmltopdf.extend.OutputDevice;
+import com.openhtmltopdf.layout.SharedContext;
+import com.openhtmltopdf.pdfboxout.PdfBoxFontResolver.FontDescription;
+import com.openhtmltopdf.pdfboxout.PdfBoxForm.CheckboxStyle;
+import com.openhtmltopdf.render.AbstractOutputDevice;
+import com.openhtmltopdf.render.BlockBox;
+import com.openhtmltopdf.render.Box;
+import com.openhtmltopdf.render.FSFont;
+import com.openhtmltopdf.render.InlineLayoutBox;
+import com.openhtmltopdf.render.InlineText;
+import com.openhtmltopdf.render.JustificationInfo;
+import com.openhtmltopdf.render.PageBox;
+import com.openhtmltopdf.render.RenderingContext;
+import com.openhtmltopdf.util.Configuration;
+import com.openhtmltopdf.util.XRLog;
 
 public class PdfBoxOutputDevice extends AbstractOutputDevice implements OutputDevice {
     //
@@ -265,7 +293,8 @@ public class PdfBoxOutputDevice extends AbstractOutputDevice implements OutputDe
         _cp.closeContent();
     }
 
-    public void paintReplacedElement(RenderingContext c, BlockBox box) {
+    @Override
+	public void paintReplacedElement(RenderingContext c, BlockBox box) {
         PdfBoxReplacedElement element = (PdfBoxReplacedElement) box.getReplacedElement();
         element.paint(c, this, box);
     }
@@ -273,7 +302,8 @@ public class PdfBoxOutputDevice extends AbstractOutputDevice implements OutputDe
     /**
      * We use paintBackground to do extra stuff such as processing links, forms and form controls.
      */
-    public void paintBackground(RenderingContext c, Box box) {
+    @Override
+	public void paintBackground(RenderingContext c, Box box) {
         super.paintBackground(c, box);
 
         _linkManager.processLinkLater(c, box, _page, _pageHeight, _transform);
@@ -309,7 +339,7 @@ public class PdfBoxOutputDevice extends AbstractOutputDevice implements OutputDe
             if (!(ctrl.box.getElement().getAttribute("type").equals("checkbox") ||
                   ctrl.box.getElement().getAttribute("type").equals("radio") ||
                   ctrl.box.getElement().getAttribute("type").equals("hidden"))) {
-                PDFont fnt = ((PdfBoxFSFont) _sharedContext.getFont(ctrl.box.getStyle().getFontSpecification())).getFontDescription().get(0).getFont();
+                PDFont fnt = ((PdfBoxFSFont) _sharedContext.getFont(ctrl.box.getStyle().getFontSpecification(_sharedContext.getLayoutContext()))).getFontDescription().get(0).getFont();
 
                 if (!controlFonts.containsKey(fnt)) {
                     fontName = "OpenHTMLFont" + controlFonts.size();
@@ -405,11 +435,13 @@ public class PdfBoxOutputDevice extends AbstractOutputDevice implements OutputDe
         return length / _dotsPerPoint;
     }
 
-    public void drawBorderLine(Shape bounds, int side, int lineWidth, boolean solid) {
+    @Override
+	public void drawBorderLine(Shape bounds, int side, int lineWidth, boolean solid) {
         draw(bounds);
     }
 
-    public void setColor(FSColor color) {
+    @Override
+	public void setColor(FSColor color) {
         if (color instanceof FSRGBColor) {
              _color = color;
         } else if (color instanceof FSCMYKColor) {
@@ -419,29 +451,35 @@ public class PdfBoxOutputDevice extends AbstractOutputDevice implements OutputDe
         }
     }
 
-    public void draw(Shape s) {
+    @Override
+	public void draw(Shape s) {
         followPath(s, STROKE);
     }
 
-    protected void drawLine(int x1, int y1, int x2, int y2) {
+    @Override
+	protected void drawLine(int x1, int y1, int x2, int y2) {
         Line2D line = new Line2D.Double(x1, y1, x2, y2);
         draw(line);
     }
 
-    public void drawRect(int x, int y, int width, int height) {
+    @Override
+	public void drawRect(int x, int y, int width, int height) {
         draw(new Rectangle(x, y, width, height));
     }
 
-    public void drawOval(int x, int y, int width, int height) {
+    @Override
+	public void drawOval(int x, int y, int width, int height) {
         Ellipse2D oval = new Ellipse2D.Float(x, y, width, height);
         draw(oval);
     }
 
-    public void fill(Shape s) {
+    @Override
+	public void fill(Shape s) {
         followPath(s, FILL);
     }
 
-    public void fillRect(int x, int y, int width, int height) {
+    @Override
+	public void fillRect(int x, int y, int width, int height) {
         if (ROUND_RECT_DIMENSIONS_DOWN) {
             fill(new Rectangle(x, y, width - 1, height - 1));
         } else {
@@ -449,23 +487,28 @@ public class PdfBoxOutputDevice extends AbstractOutputDevice implements OutputDe
         }
     }
 
-    public void fillOval(int x, int y, int width, int height) {
+    @Override
+	public void fillOval(int x, int y, int width, int height) {
         Ellipse2D oval = new Ellipse2D.Float(x, y, width, height);
         fill(oval);
     }
 
-    public void translate(double tx, double ty) {
+    @Override
+	public void translate(double tx, double ty) {
         _transform.translate(tx, ty);
     }
 
-    public Object getRenderingHint(Key key) {
+    @Override
+	public Object getRenderingHint(Key key) {
         return null;
     }
 
-    public void setRenderingHint(Key key, Object value) {
+    @Override
+	public void setRenderingHint(Key key, Object value) {
     }
 
-    public void setFont(FSFont font) {
+    @Override
+	public void setFont(FSFont font) {
         _font = ((PdfBoxFSFont) font);
     }
 
@@ -830,7 +873,8 @@ public class PdfBoxOutputDevice extends AbstractOutputDevice implements OutputDe
         }
     }
 
-    public void setStroke(Stroke s) {
+    @Override
+	public void setStroke(Stroke s) {
         _originalStroke = s;
         this._stroke = transformStroke(s);
     }
@@ -849,7 +893,8 @@ public class PdfBoxOutputDevice extends AbstractOutputDevice implements OutputDe
                 * scale);
     }
 
-    public void clip(Shape s) {
+    @Override
+	public void clip(Shape s) {
         if (s != null) {
             s = _transform.createTransformedShape(s);
             if (_clip == null)
@@ -862,7 +907,8 @@ public class PdfBoxOutputDevice extends AbstractOutputDevice implements OutputDe
         }
     }
 
-    public Shape getClip() {
+    @Override
+	public Shape getClip() {
         try {
             return _transform.createInverse().createTransformedShape(_clip);
         } catch (NoninvertibleTransformException e) {
@@ -870,7 +916,8 @@ public class PdfBoxOutputDevice extends AbstractOutputDevice implements OutputDe
         }
     }
 
-    public void setClip(Shape s) {
+    @Override
+	public void setClip(Shape s) {
         // Restore graphics to get back to a no-clip situation.
         _cp.restoreGraphics();
 
@@ -898,7 +945,8 @@ public class PdfBoxOutputDevice extends AbstractOutputDevice implements OutputDe
         _oldStroke = null;
     }
 
-    public Stroke getStroke() {
+    @Override
+	public Stroke getStroke() {
         return _originalStroke;
     }
     
@@ -921,7 +969,8 @@ public class PdfBoxOutputDevice extends AbstractOutputDevice implements OutputDe
         img.setXObject(xobject);
     }
 
-    public void drawImage(FSImage fsImage, int x, int y) {
+    @Override
+	public void drawImage(FSImage fsImage, int x, int y) {
         PdfBoxImage img = (PdfBoxImage) fsImage;
 
         PDImageXObject xobject = img.getXObject();
@@ -1141,7 +1190,7 @@ public class PdfBoxOutputDevice extends AbstractOutputDevice implements OutputDe
     public String getMetadataByName(String name) {
         if (name != null) {
             for (int i = 0, len = _metadata.size(); i < len; i++) {
-                Metadata m = (Metadata) _metadata.get(i);
+                Metadata m = _metadata.get(i);
                 if ((m != null) && m.getName().equalsIgnoreCase(name)) {
                     return m.getContent();
                 }
@@ -1164,7 +1213,7 @@ public class PdfBoxOutputDevice extends AbstractOutputDevice implements OutputDe
         ArrayList result = new ArrayList();
         if (name != null) {
             for (int i = 0, len = _metadata.size(); i < len; i++) {
-                Metadata m = (Metadata) _metadata.get(i);
+                Metadata m = _metadata.get(i);
                 if ((m != null) && m.getName().equalsIgnoreCase(name)) {
                     result.add(m.getContent());
                 }
@@ -1225,7 +1274,7 @@ public class PdfBoxOutputDevice extends AbstractOutputDevice implements OutputDe
             boolean remove = (value == null); // removing all instances of name?
             int free = -1; // first open slot in array
             for (int i = 0, len = _metadata.size(); i < len; i++) {
-                Metadata m = (Metadata) _metadata.get(i);
+                Metadata m = _metadata.get(i);
                 if (m != null) {
                     if (m.getName().equalsIgnoreCase(name)) {
                         if (!remove) {
@@ -1301,15 +1350,18 @@ public class PdfBoxOutputDevice extends AbstractOutputDevice implements OutputDe
         _startPageNo = startPageNo;
     }
 
-    public void drawSelection(RenderingContext c, InlineText inlineText) {
+    @Override
+	public void drawSelection(RenderingContext c, InlineText inlineText) {
         throw new UnsupportedOperationException();
     }
 
-    public boolean isSupportsSelection() {
+    @Override
+	public boolean isSupportsSelection() {
         return false;
     }
 
-    public boolean isSupportsCMYKColors() {
+    @Override
+	public boolean isSupportsCMYKColors() {
         return true;
     }
 
@@ -1333,7 +1385,8 @@ public class PdfBoxOutputDevice extends AbstractOutputDevice implements OutputDe
         }
 
         Collections.sort(result, new Comparator() {
-            public int compare(Object arg0, Object arg1) {
+            @Override
+			public int compare(Object arg0, Object arg1) {
                 PagePosition p1 = (PagePosition) arg0;
                 PagePosition p2 = (PagePosition) arg1;
                 return p1.getPageNo() - p2.getPageNo();

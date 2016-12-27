@@ -43,7 +43,6 @@ import com.openhtmltopdf.css.style.derived.LengthValue;
 import com.openhtmltopdf.css.value.FontSpecification;
 import com.openhtmltopdf.extend.FSImage;
 import com.openhtmltopdf.extend.OutputDevice;
-import com.openhtmltopdf.swing.Java2DOutputDevice;
 import com.openhtmltopdf.util.Configuration;
 import com.openhtmltopdf.util.Uu;
 
@@ -57,7 +56,8 @@ public abstract class AbstractOutputDevice implements OutputDevice {
 
     protected abstract void drawLine(int x1, int y1, int x2, int y2);
     
-    public void drawText(RenderingContext c, InlineText inlineText) {
+    @Override
+	public void drawText(RenderingContext c, InlineText inlineText) {
         InlineLayoutBox iB = inlineText.getParent();
         String text = inlineText.getSubstring();
 
@@ -70,7 +70,7 @@ public abstract class AbstractOutputDevice implements OutputDevice {
         if (text != null && text.length() > 0) {
             setColor(iB.getStyle().getColor());
             setFont(iB.getStyle().getFSFont(c));
-            setFontSpecification(iB.getStyle().getFontSpecification());
+            setFontSpecification(iB.getStyle().getFontSpecification(c.sharedContext.getLayoutContext()));
             if (inlineText.getParent().getStyle().isTextJustify()) {
                 JustificationInfo info = inlineText.getParent().getLineBox().getJustificationInfo();
                 if (info != null) {
@@ -121,7 +121,8 @@ public abstract class AbstractOutputDevice implements OutputDevice {
         drawLine(x, y, x + width, y);
     }
 
-    public void drawTextDecoration(
+    @Override
+	public void drawTextDecoration(
             RenderingContext c, InlineLayoutBox iB, TextDecoration decoration) {
         setColor(iB.getStyle().getColor());
 
@@ -131,7 +132,8 @@ public abstract class AbstractOutputDevice implements OutputDevice {
                     edge.width, decoration.getThickness());
     }
 
-    public void drawTextDecoration(RenderingContext c, LineBox lineBox) {
+    @Override
+	public void drawTextDecoration(RenderingContext c, LineBox lineBox) {
         setColor(lineBox.getStyle().getColor());
         Box parent = lineBox.getParent();
         List decorations = lineBox.getTextDecorations();
@@ -153,7 +155,8 @@ public abstract class AbstractOutputDevice implements OutputDevice {
         }
     }
 
-    public void drawDebugOutline(RenderingContext c, Box box, FSColor color) {
+    @Override
+	public void drawDebugOutline(RenderingContext c, Box box, FSColor color) {
         setColor(color);
         Rectangle rect = box.getMarginEdge(box.getAbsX(), box.getAbsY(), c, 0, 0);
         rect.height -= 1;
@@ -161,12 +164,14 @@ public abstract class AbstractOutputDevice implements OutputDevice {
         drawRect(rect.x, rect.y, rect.width, rect.height);
     }
 
-    public void paintCollapsedBorder(
+    @Override
+	public void paintCollapsedBorder(
             RenderingContext c, BorderPropertySet border, Rectangle bounds, int side) {
         BorderPainter.paint(bounds, side, border, c, 0, false);
     }
 
-    public void paintBorder(RenderingContext c, Box box) {
+    @Override
+	public void paintBorder(RenderingContext c, Box box) {
         if (! box.getStyle().isVisible(c, box)) {
             return;
         }
@@ -176,7 +181,8 @@ public abstract class AbstractOutputDevice implements OutputDevice {
         BorderPainter.paint(borderBounds, box.getBorderSides(), box.getBorder(c), c, 0, true);
     }
 
-    public void paintBorder(RenderingContext c, CalculatedStyle style, Rectangle edge, int sides) {
+    @Override
+	public void paintBorder(RenderingContext c, CalculatedStyle style, Rectangle edge, int sides) {
         BorderPainter.paint(edge, sides, style.getBorder(c), c, 0, true);
     }
 
@@ -193,13 +199,15 @@ public abstract class AbstractOutputDevice implements OutputDevice {
         return null;
     }
 
-    public void paintBackground(
+    @Override
+	public void paintBackground(
             RenderingContext c, CalculatedStyle style,
             Rectangle bounds, Rectangle bgImageContainer, BorderPropertySet border) {
         paintBackground0(c, style, bounds, bgImageContainer, border);
     }
 
-    public void paintBackground(RenderingContext c, Box box) {
+    @Override
+	public void paintBackground(RenderingContext c, Box box) {
         if (! box.getStyle().isVisible(c, box)) {
             return;
         }

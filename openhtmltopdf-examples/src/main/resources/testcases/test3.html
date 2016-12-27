@@ -1,0 +1,40 @@
+<html>
+<head>
+  <meta charset="utf-8"/>
+  <style type="text/css">
+  @font-face {
+    font-family: "aaa";
+    src: url(msyh.ttf);
+  }
+  /*
+  *{font-family: "aaa";}*/
+  *{font-family: "SimSun",sans-serif, "aaa";}
+  </style>
+</head>
+<body>
+
+<div>
+<form action="http://localhost/form.php" method="POST">
+ <p>我是彼得</p>
+<textarea  name="text-area-test" style="color:red; width: 200px; height: 300px;">我是皮特啊啊啊</textarea>
+<input type="text" name="name" value="皮特">
+<div>
+  <input type="radio" name="gender" value="1" checked="checked">男 | 
+  <input type="radio" name="gender" value="2">女
+</div>
+<div>
+  <input type="checkbox" name="hobby1" value="1" checked="checked">健身 | 
+  <input type="checkbox" name="hobby2" value="2">读书
+</div>
+<div>
+  <span>哪里人：</span>
+  <select name="address">
+    <option value="1">北京</option>  
+    <option value="2" selected="selected">天津</option>  
+    <option value="3">上海</option>  
+  </select>
+</div>
+</form>
+</div>
+</body>
+</html>

@@ -210,7 +210,8 @@ public class CalculatedStyle {
      *
      * @return The borderWidth value
      */
-    public String toString() {
+    @Override
+	public String toString() {
         return genStyleKey();
     }
 
@@ -403,7 +404,10 @@ public class CalculatedStyle {
         return _font;
     }
 
-    public FontSpecification getFontSpecification() {
+    public FontSpecification getFontSpecification(CssContext ctx) {
+    	if(_font == null){
+    		getFont(ctx);
+    	}
     return _font;
     }
 

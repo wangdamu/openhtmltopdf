@@ -137,6 +137,11 @@ public class SharedContext {
 	private FSTextTransformer _unicodeToUpperTransformer = new TextUtil.DefaultToUpperTransformer(Locale.US);
 	private FSTextTransformer _unicodeToTitleTransformer = new TextUtil.DefaultToTitleTransformer();
     
+	// Peter.Wang added at 2016-12-27 fix: The css height property of input or textarea not support
+	// When add css height property, at com.openhtmltopdf.pdfboxout.PdfBoxFontResolver.resolveFont will throw NullPointerException
+	private LayoutContext layoutContext;
+	
+	
     public SharedContext() {
     }
 
@@ -183,10 +188,18 @@ public class SharedContext {
 
     public LayoutContext newLayoutContextInstance() {
         LayoutContext c = new LayoutContext(this);
+        layoutContext = c;
         return c;
     }
+    
+    /**
+     * Retrieve current layout context
+     */
+    public LayoutContext getLayoutContext() {
+		return layoutContext;
+	}
 
-    public RenderingContext newRenderingContextInstance() {
+	public RenderingContext newRenderingContextInstance() {
         RenderingContext c = new RenderingContext(this);
         return c;
     }
