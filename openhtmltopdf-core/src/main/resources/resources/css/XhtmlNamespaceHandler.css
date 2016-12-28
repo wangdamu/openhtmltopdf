@@ -84,7 +84,7 @@ a:link, a:visited { text-decoration: underline }
 */
 
 @page {
-  margin: 0.5in;
+  /*margin: 0.1in;*/
 }
 
 /* Flying Saucer overrides, usually compensate for unimplemented stuff */
